@@ -1,13 +1,15 @@
 package main
 
 import (
-	"net"
-
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"net"
+
+	db "github.com/nexusriot/judy/pkg/db"
 )
 
-func handleConnection(id string, c net.Conn, logger *zap.Logger) {
+func handleConnection(id string, c net.Conn, db *db.JudyDb, logger *zap.Logger) {
+	db.AddClient(id, c.RemoteAddr().String())
 
 }
 
@@ -19,7 +21,9 @@ func main() {
 		panic(err)
 	}
 	// TODO: make configurable
-	addr := "0.0.0.0:3137"
+	judyDB := db.NewJudyDb(logger)
+	defer judyDB.Close()
+	addr := "0.0.0.0:1337"
 	l, err := net.Listen("tcp", addr)
 	if nil != err {
 		logger.Error("Failed to listen ", zap.String("addr", addr), zap.Error(err))
@@ -35,6 +39,6 @@ func main() {
 		}
 		conn_id := uuid.New().String()
 		logger.Info("Accepting connection id", zap.String("conn_id", conn_id), zap.String("ip", l.Addr().String()))
-		go handleConnection(conn_id, conn, logger)
+		go handleConnection(conn_id, conn, judyDB, logger)
 	}
 }
