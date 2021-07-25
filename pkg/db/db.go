@@ -61,7 +61,7 @@ func (j *JudyDb) Close() {
 func (j *JudyDb) AddClient(uuid string, ip_addr string) {
 	j.mx.Lock()
 	defer j.mx.Unlock()
-	_, err := j.db.Exec("insert into client (id, ip_addr) values ($1, $2)", uuid, ip_addr)
+	_, err := j.db.Exec("insert or ignore into client (id, ip_addr) values ($1, $2)", uuid, ip_addr)
 	if nil != err {
 		j.logger.Warn("Error inserting client info", zap.Error(err))
 	}
