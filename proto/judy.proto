@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package judy;
+
+message Heartbeat {
+  string ClientId = 1;
+  string MessageId = 2;
+}
+
+message HeartbeatResponse {
+  string ClientId = 1;
+  string MessageId = 2;
+  string Command = 3;
+}
