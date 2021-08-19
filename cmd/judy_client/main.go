@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -24,6 +26,21 @@ type Client struct {
 	receive    chan []byte
 	logger     *zap.Logger
 	session    string
+}
+
+func (c *Client) execCommand() (string, error) {
+	cmd := exec.Command("ls", "-a")
+	//cmd.Stdin = strings.NewReader()
+	var out bytes.Buffer
+	cmd.Stdin = &out
+	err := cmd.Run()
+	if err != nil {
+		c.logger.Error("Failed to execute command", zap.Error(err))
+		return "", err
+	}
+	output := out.String()
+	c.logger.Info("output", zap.String("output", output))
+	return output, err
 }
 
 func (c *Client) readClientId() (string, error) {

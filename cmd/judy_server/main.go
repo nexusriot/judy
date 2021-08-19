@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"net"
 
@@ -11,7 +10,7 @@ import (
 	pb "github.com/nexusriot/judy/proto"
 )
 
-func handleConnection(id string, c net.Conn, db *db.JudyDb, logger *zap.Logger) {
+func handleConnection(c net.Conn, db *db.JudyDb, logger *zap.Logger) {
 	message := make([]byte, 4096)
 	length, err := c.Read(message)
 	if err != nil {
@@ -64,8 +63,7 @@ func main() {
 		if nil != err {
 			logger.Error("Error accepting connection", zap.Error(err))
 		}
-		conn_id := uuid.New().String()
-		logger.Info("Accepting request id", zap.String("conn_id", conn_id), zap.String("ip", l.Addr().String()))
-		go handleConnection(conn_id, conn, judyDB, logger)
+		logger.Info("Accepting request id", zap.String("ip", l.Addr().String()))
+		go handleConnection(conn, judyDB, logger)
 	}
 }
