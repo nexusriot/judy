@@ -13,3 +13,11 @@ message HeartbeatResponse {
   string MessageId = 2;
   string Command = 3;
 }
+
+message CommandRequest {
+  string Command = 1;
+}
+
+message CommandResponse {
+  string Response = 1;
+}

@@ -130,15 +130,95 @@ func (m *HeartbeatResponse) GetCommand() string {
 	return ""
 }
 
+type CommandRequest struct {
+	Command              string   `protobuf:"bytes,1,opt,name=Command,proto3" json:"Command,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CommandRequest) Reset()         { *m = CommandRequest{} }
+func (m *CommandRequest) String() string { return proto.CompactTextString(m) }
+func (*CommandRequest) ProtoMessage()    {}
+func (*CommandRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_96a8885cde79d710, []int{2}
+}
+
+func (m *CommandRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CommandRequest.Unmarshal(m, b)
+}
+func (m *CommandRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CommandRequest.Marshal(b, m, deterministic)
+}
+func (m *CommandRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommandRequest.Merge(m, src)
+}
+func (m *CommandRequest) XXX_Size() int {
+	return xxx_messageInfo_CommandRequest.Size(m)
+}
+func (m *CommandRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CommandRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CommandRequest proto.InternalMessageInfo
+
+func (m *CommandRequest) GetCommand() string {
+	if m != nil {
+		return m.Command
+	}
+	return ""
+}
+
+type CommandResponse struct {
+	Response             string   `protobuf:"bytes,1,opt,name=Response,proto3" json:"Response,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CommandResponse) Reset()         { *m = CommandResponse{} }
+func (m *CommandResponse) String() string { return proto.CompactTextString(m) }
+func (*CommandResponse) ProtoMessage()    {}
+func (*CommandResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_96a8885cde79d710, []int{3}
+}
+
+func (m *CommandResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CommandResponse.Unmarshal(m, b)
+}
+func (m *CommandResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CommandResponse.Marshal(b, m, deterministic)
+}
+func (m *CommandResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommandResponse.Merge(m, src)
+}
+func (m *CommandResponse) XXX_Size() int {
+	return xxx_messageInfo_CommandResponse.Size(m)
+}
+func (m *CommandResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CommandResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CommandResponse proto.InternalMessageInfo
+
+func (m *CommandResponse) GetResponse() string {
+	if m != nil {
+		return m.Response
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*Heartbeat)(nil), "judy.Heartbeat")
 	proto.RegisterType((*HeartbeatResponse)(nil), "judy.HeartbeatResponse")
+	proto.RegisterType((*CommandRequest)(nil), "judy.CommandRequest")
+	proto.RegisterType((*CommandResponse)(nil), "judy.CommandResponse")
 }
 
 func init() { proto.RegisterFile("judy.proto", fileDescriptor_96a8885cde79d710) }
 
 var fileDescriptor_96a8885cde79d710 = []byte{
-	// 146 bytes of a gzipped FileDescriptorProto
+	// 177 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xca, 0x2a, 0x4d, 0xa9,
 	0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x01, 0xb1, 0x95, 0xb2, 0xb9, 0x38, 0x3d, 0x52,
 	0x13, 0x8b, 0x4a, 0x92, 0x52, 0x13, 0x4b, 0x84, 0xa4, 0xb8, 0x38, 0x9c, 0x73, 0x32, 0x53, 0xf3,
@@ -146,7 +226,9 @@ var fileDescriptor_96a8885cde79d710 = []byte{
 	0xdf, 0xd4, 0xe2, 0xe2, 0xc4, 0xf4, 0x54, 0xcf, 0x14, 0x09, 0x26, 0xb0, 0x24, 0x42, 0x40, 0x48,
 	0x85, 0x8b, 0xd7, 0x39, 0x3f, 0x37, 0x37, 0x31, 0x2f, 0xc5, 0xbf, 0xb4, 0xa4, 0xa0, 0xb4, 0x44,
 	0x82, 0x19, 0xac, 0x02, 0x55, 0x50, 0x29, 0x9d, 0x4b, 0x10, 0x6e, 0x59, 0x50, 0x6a, 0x71, 0x41,
-	0x7e, 0x5e, 0x71, 0x2a, 0x05, 0x96, 0x4a, 0x70, 0xb1, 0x43, 0xcd, 0x87, 0x5a, 0x07, 0xe3, 0x26,
-	0xb1, 0x81, 0xbd, 0x68, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0xcd, 0xc3, 0xe9, 0xfa, 0xf0, 0x00,
-	0x00, 0x00,
+	0x7e, 0x5e, 0x71, 0x2a, 0x05, 0x96, 0x4a, 0x70, 0xb1, 0x43, 0xcd, 0x87, 0x5a, 0x07, 0xe3, 0x2a,
+	0x69, 0x71, 0xf1, 0x41, 0x99, 0x41, 0xa9, 0x85, 0xa5, 0xa9, 0xc5, 0x25, 0xc8, 0x6a, 0x19, 0x51,
+	0xd5, 0xea, 0x72, 0xf1, 0xc3, 0xd5, 0x22, 0x9c, 0x04, 0x63, 0xc3, 0x9c, 0x04, 0xe3, 0x27, 0xb1,
+	0x81, 0x43, 0xcf, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0x56, 0xd0, 0x73, 0x97, 0x4b, 0x01, 0x00,
+	0x00,
 }
