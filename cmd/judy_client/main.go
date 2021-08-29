@@ -28,8 +28,8 @@ type Client struct {
 	session    string
 }
 
-func (c *Client) execCommand() (string, error) {
-	cmd := exec.Command("ls", "-a")
+func (c *Client) execCommand(command string) (string, error) {
+	cmd := exec.Command(command)
 	//cmd.Stdin = strings.NewReader()
 	var out bytes.Buffer
 	cmd.Stdin = &out
