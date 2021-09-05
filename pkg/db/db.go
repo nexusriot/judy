@@ -112,7 +112,6 @@ func (j *JudyDb) AddClient(uuid string, ip_addr string) {
 			j.logger.Debug("Update seen for client succeed", zap.String("uuid", uuid), zap.Time("seen", dateTime))
 		}
 	}
-	// TODO: update seen
 	j.logger.Debug("Client updated successfully", zap.String("uuid", uuid), zap.String("ip_addr", ip_addr), zap.Time("time", dateTime))
 }
 

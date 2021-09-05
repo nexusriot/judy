@@ -3,15 +3,13 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"log"
-	"net"
+	"io/ioutil"
+	"net/http"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
-
 	"go.uber.org/zap"
 
 	pb "github.com/nexusriot/judy/proto"
@@ -20,28 +18,26 @@ import (
 const idFile = "judy.dat"
 
 type Client struct {
-	id         string
-	connection *net.Conn
-	send       chan []byte
-	receive    chan []byte
-	logger     *zap.Logger
-	session    string
+	Id      string
+	Client  *http.Client
+	Logger  *zap.Logger
+	Session string
 }
 
-func (c *Client) execCommand(command string) (string, error) {
-	cmd := exec.Command(command)
-	//cmd.Stdin = strings.NewReader()
-	var out bytes.Buffer
-	cmd.Stdin = &out
-	err := cmd.Run()
-	if err != nil {
-		c.logger.Error("Failed to execute command", zap.Error(err))
-		return "", err
-	}
-	output := out.String()
-	c.logger.Info("output", zap.String("output", output))
-	return output, err
-}
+//func (c *Client) execCommand(command string) (string, error) {
+//	cmd := exec.Command(command)
+//	//cmd.Stdin = strings.NewReader()
+//	var out bytes.Buffer
+//	cmd.Stdin = &out
+//	err := cmd.Run()
+//	if err != nil {
+//		c.Logger.Error("Failed to execute command", zap.Error(err))
+//		return "", err
+//	}
+//	output := out.String()
+//	c.Logger.Info("output", zap.String("output", output))
+//	return output, err
+//}
 
 func (c *Client) readClientId() (string, error) {
 	file, err := os.Open(idFile)
@@ -53,14 +49,14 @@ func (c *Client) readClientId() (string, error) {
 		return "", statsErr
 	}
 
-	var size int64 = stats.Size()
+	var size = stats.Size()
 	bytes := make([]byte, size)
 
 	buf := bufio.NewReader(file)
 	_, err = buf.Read(bytes)
 	id, err := uuid.FromBytes(bytes)
 	if err != nil {
-		c.logger.Fatal("Couldn't parse uuid")
+		c.Logger.Fatal("Couldn't parse uuid")
 		file.Close()
 		_ = os.Remove(idFile)
 		return "", err
@@ -70,25 +66,25 @@ func (c *Client) readClientId() (string, error) {
 }
 
 func (c *Client) generateClientId() string {
-	c.logger.Debug("Generating new client id")
+	c.Logger.Debug("Generating new client id")
 	f, err := os.Create(idFile)
 	defer f.Close()
 	if err != nil {
-		c.logger.Fatal("Couldn't create id file")
+		c.Logger.Fatal("Couldn't create id file")
 	}
 	idBytes, err := uuid.New().MarshalBinary()
 	w := bufio.NewWriter(f)
 	_, err = w.Write(idBytes)
 	if err != nil {
-		c.logger.Fatal("Couldn't write id file")
+		c.Logger.Fatal("Couldn't write id file")
 	}
 	err = w.Flush()
 	if err != nil {
-		c.logger.Fatal("Couldn't write id file")
+		c.Logger.Fatal("Couldn't write id file")
 	}
 	id, err := uuid.FromBytes(idBytes)
 	if err != nil {
-		c.logger.Fatal("Couldn't parse uuid")
+		c.Logger.Fatal("Couldn't parse uuid")
 	}
 	return id.String()
 }
@@ -96,62 +92,59 @@ func (c *Client) generateClientId() string {
 func (c *Client) getClientId() (string, error) {
 	res, err := c.readClientId()
 	if os.IsNotExist(err) {
-		c.logger.Warn("client id not found")
+		c.Logger.Warn("client id not found")
 		res = c.generateClientId()
 	}
 	return res, err
 }
 
-func (c *Client) write(message []byte) {
-	_, err := (*c.connection).Write(message)
+func (c *Client) Heartbeat() {
+	hb := pb.Heartbeat{ClientId: c.Id}
+	data, err := proto.Marshal(&hb)
+	responseBody := bytes.NewBuffer(data)
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:1337/hb", responseBody)
 	if err != nil {
-		log.Println("Error writing connection", err.Error())
+		//  TODO:
 	}
-}
-
-func (c *Client) read() (int, []byte) {
-	message := make([]byte, 4096)
-	length, err := (*c.connection).Read(message)
+	req.Header.Set("User-Agent", "ncl")
+	req.Header.Set("content-type", "application/x-protobuf")
+	res, getErr := c.Client.Do(req)
+	if getErr != nil {
+		// TODO:
+	}
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		// TODO:
+	}
+	hbResponse := new(pb.HeartbeatResponse)
+	err = proto.Unmarshal(body, hbResponse)
 	if err != nil {
-		c.logger.Warn("Failed to read message")
+		c.Logger.Error("Failed to unmarshal heartbeat", zap.Error(err))
 	}
-	return length, message
-}
-
-func NewClient(logger *zap.Logger) Client {
-	return Client{send: make(chan []byte, 4096), receive: make(chan []byte, 4096), logger: logger}
+	c.Logger.Info(hbResponse.ClientId)
 }
 
 func (c *Client) run() {
 	client_id, err := c.getClientId()
-	c.id = client_id
-	c.logger.Info("Client id %s", zap.String("client_id", client_id))
+	if err != nil {
+		c.Logger.Panic("Failed to get client id")
+	}
+	c.Id = client_id
+	c.Logger.Info("Client id %s", zap.String("client_id", client_id))
+	for {
+		c.Heartbeat()
+		time.Sleep(10 * time.Second)
+	}
+}
 
-	conn, err := net.Dial("tcp", "localhost:1337")
-	defer conn.Close()
-
-	if err != nil {
-		c.logger.Error("Connection error:", zap.Error(err))
+func NewClient(logger *zap.Logger) Client {
+	client := http.Client{
+		Timeout: time.Second * 10,
 	}
-	c.connection = &conn
-	msg1 := &pb.Heartbeat{
-		ClientId: c.id,
-	}
-	data, err := proto.Marshal(msg1)
-	if err != nil {
-		c.logger.Error("Marshaling error: ", zap.Error(err))
-		return
-	}
-	c.write(data)
-	length, message := c.read()
-	c.logger.Debug("Got message")
-	msg := new(pb.HeartbeatResponse)
-	err = proto.Unmarshal(message[:length], msg)
-	if err != nil {
-		c.logger.Error("Unmarshaling error: ", zap.Error(err))
-		return
-	}
-	c.logger.Debug("message", zap.String("client_id", msg.ClientId))
+	return Client{Client: &client, Logger: logger}
 }
 
 func main() {
@@ -162,9 +155,6 @@ func main() {
 		panic(err)
 	}
 	logger.Info("Starting client")
-	for {
-		client := NewClient(logger)
-		client.run()
-		time.Sleep(10 * time.Second)
-	}
+	client := NewClient(logger)
+	client.run()
 }

@@ -5,13 +5,17 @@ package judy;
 message Heartbeat {
   string ClientId = 1;
   string MessageId = 2;
-  string CommandOutput = 3;
+}
+
+message Task {
+    string Id = 1;
+    bytes Payload = 2;
 }
 
 message HeartbeatResponse {
   string ClientId = 1;
   string MessageId = 2;
-  string Command = 3;
+  repeated Task tasks = 3;
 }
 
 message CommandRequest {
