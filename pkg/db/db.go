@@ -25,9 +25,9 @@ type JudyDb struct {
 
 type Task struct {
 	Id        string        `json:"id"`
+	ClientId  string        `json:"client_id"`
 	Task      string        `json:"task"`
 	Created   *time.Time    `json:"created"`
-	Taken     *sql.NullTime `json:"taken, omitempty"`
 	Completed *sql.NullTime `json:"completed, omitempty"`
 }
 
@@ -36,18 +36,24 @@ func (t *Task) String() string {
 	return string(out)
 }
 
-func InitDatabase(logger *zap.Logger) *sql.DB {
-	logger.Debug("Creating database...")
-	_, err := os.Stat(JUDY_DB)
-	if os.IsNotExist(err) {
-		_, err := os.Create(JUDY_DB)
-		if err != nil {
-			logger.Fatal("Failed to create db")
+func InitDatabase(inMemory bool, logger *zap.Logger) *sql.DB {
+	var sqliteDatabase *sql.DB
+	if !inMemory {
+		logger.Debug("Creating database...")
+		_, err := os.Stat(JUDY_DB)
+		if os.IsNotExist(err) {
+			_, err := os.Create(JUDY_DB)
+			if err != nil {
+				logger.Fatal("Failed to create db")
+			}
 		}
+		logger.Info("db created")
+		// TODO: Migrations
+		sqliteDatabase, _ = sql.Open("sqlite3", "./"+JUDY_DB)
+	} else {
+		sqliteDatabase, _ = sql.Open("sqlite3", ":memory:")
 	}
-	logger.Info("db created")
-	// TODO: Migrations
-	sqliteDatabase, _ := sql.Open("sqlite3", "./"+JUDY_DB)
+
 	return sqliteDatabase
 }
 
@@ -56,8 +62,8 @@ func getDateTime() time.Time {
 	return time.Now().In(loc)
 }
 
-func NewJudyDb(logger *zap.Logger) *JudyDb {
-	db := &JudyDb{logger: logger, db: InitDatabase(logger)}
+func NewJudyDb(inMemory bool, logger *zap.Logger) *JudyDb {
+	db := &JudyDb{logger: logger, db: InitDatabase(inMemory, logger)}
 	db.createTables()
 	return db
 }
@@ -70,10 +76,11 @@ func (j *JudyDb) createTables() {
 	  );` // SQL Statement for Create Table
 	createTasksTableSQL := `CREATE TABLE IF NOT EXISTS task (
 		"id" varchar(36) NOT NULL PRIMARY KEY,
+		"client_id" varchar(36) NOT NULL,
 		"task" TEXT,
         "created" TIMESTAMP,
-        "taken" TIMESTAMP,
-        "completed" TIMESTAMP 
+        "completed" TIMESTAMP,
+        FOREIGN KEY (client_id) REFERENCES client (id)
 	  );`
 	j.logger.Debug("Create client table")
 	statement, err := j.db.Prepare(createClientTableSQL) // Prepare SQL Statement
@@ -115,35 +122,44 @@ func (j *JudyDb) AddClient(uuid string, ip_addr string) {
 	j.logger.Debug("Client updated successfully", zap.String("uuid", uuid), zap.String("ip_addr", ip_addr), zap.Time("time", dateTime))
 }
 
-func (j *JudyDb) AddTask(task string) {
+func (j *JudyDb) AddTask(clientId string, task string) {
 	j.mx.Lock()
 	defer j.mx.Unlock()
 	dateTime := getDateTime()
 	taskUUID := uuid.New().String()
-	_, err := j.db.Exec("insert or ignore into task (id, task, created) values ($1, $2, $3)", taskUUID, task, dateTime)
+	_, err := j.db.Exec("insert into task (id, client_id, task, created) values ($1, $2, $3, $4)", taskUUID, clientId, task, dateTime)
 	if nil != err {
 		j.logger.Warn("Error inserting client info", zap.Error(err))
 	}
 	j.logger.Debug("Task added successfully", zap.String("uuid", taskUUID), zap.String("task", task), zap.Time("time", dateTime))
 }
 
-func (j *JudyDb) TakeTask() (*Task, error) {
+func (j *JudyDb) TakeTasks(clientId string) ([]*Task, error) {
+	j.logger.Debug("Taking tasks", zap.String("client_id", clientId))
+	tasks := make([]*Task, 0)
 	j.mx.Lock()
 	defer j.mx.Unlock()
-	dateTime := getDateTime()
-	statement := "SELECT * FROM task where taken is NULL ORDER BY created ASC LIMIT 1"
-	var task Task
-	row := j.db.QueryRow(statement, 3)
-	err := row.Scan(&task.Id, &task.Task, &task.Created, &task.Taken, &task.Completed)
-	if err == nil {
-		setTakenSQL := "UPDATE task SET taken = $1 WHERE id = $2"
-		_, err := j.db.Exec(setTakenSQL, dateTime, task.Id)
-		if nil != err {
-			j.logger.Warn("Error set task taking", zap.String("uuid", task.Id))
-		} else {
-			j.logger.Debug("TakeTask succeed", zap.String("uuid", task.Id))
-		}
-		return &task, nil
+	statement, err := j.db.Prepare("SELECT * FROM task where client_id = ? AND completed is NULL ORDER BY created ASC")
+	if err != nil {
+		j.logger.Error("Take tasks: Failed to prepare statement", zap.String("client_id", clientId))
+		return nil, err
 	}
-	return nil, err
+	rows, err := statement.Query(clientId)
+	if err != nil {
+		j.logger.Error("Take tasks: Failed to query statement", zap.String("client_id", clientId))
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		task := new(Task)
+		err = rows.Scan(&task.Id, &task.ClientId, &task.Task, &task.Created, &task.Completed)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }

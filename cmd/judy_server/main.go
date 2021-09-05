@@ -38,7 +38,7 @@ func main() {
 	}
 	// TODO: make configurable
 	//sync := make(chan struct{})
-	judyDB := db.NewJudyDb(logger)
+	judyDB := db.NewJudyDb(true, logger)
 	defer judyDB.Close()
 	r := gin.Default()
 	r.POST("/hb", func(c *gin.Context) {
