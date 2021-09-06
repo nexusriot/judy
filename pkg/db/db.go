@@ -111,8 +111,8 @@ func (j *JudyDb) AddClient(uuid string, ip_addr string) {
 	}
 	affected, _ := fetch.RowsAffected()
 	if affected == 0 {
-		setTakenSQL := "UPDATE client SET seen = $1 WHERE id = $2"
-		_, err := j.db.Exec(setTakenSQL, dateTime, uuid)
+		updateSeenSQL := "UPDATE client SET seen = $1 WHERE id = $2"
+		_, err := j.db.Exec(updateSeenSQL, dateTime, uuid)
 		if nil != err {
 			j.logger.Warn("Error update seen for client", zap.String("uuid", uuid))
 		} else {
@@ -122,7 +122,7 @@ func (j *JudyDb) AddClient(uuid string, ip_addr string) {
 	j.logger.Debug("Client updated successfully", zap.String("uuid", uuid), zap.String("ip_addr", ip_addr), zap.Time("time", dateTime))
 }
 
-func (j *JudyDb) AddTask(clientId string, task string) {
+func (j *JudyDb) AddTask(clientId string, task string) string {
 	j.mx.Lock()
 	defer j.mx.Unlock()
 	dateTime := getDateTime()
@@ -132,6 +132,25 @@ func (j *JudyDb) AddTask(clientId string, task string) {
 		j.logger.Warn("Error inserting client info", zap.Error(err))
 	}
 	j.logger.Debug("Task added successfully", zap.String("uuid", taskUUID), zap.String("task", task), zap.Time("time", dateTime))
+	return taskUUID
+}
+
+func (j *JudyDb) GetTask(taskId string) (*Task, error) {
+	j.mx.Lock()
+	defer j.mx.Unlock()
+	statement, err := j.db.Prepare("SELECT * FROM task where id = ?")
+	if err != nil {
+		j.logger.Error("Get task: Failed to prepare statement", zap.Error(err), zap.String("task_id", taskId))
+		return nil, err
+	}
+	var task Task
+	row := statement.QueryRow(taskId)
+	err = row.Scan(&task.Id, &task.ClientId, &task.Task, &task.Created, &task.Completed)
+	if err != nil {
+		j.logger.Error("Get task: Failed to scan", zap.Error(err), zap.String("task_id", taskId))
+		return nil, err
+	}
+	return &task, nil
 }
 
 func (j *JudyDb) TakeTasks(clientId string) ([]*Task, error) {
