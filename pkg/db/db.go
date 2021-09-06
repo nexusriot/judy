@@ -23,6 +23,12 @@ type JudyDb struct {
 	mx     sync.Mutex
 }
 
+type Client struct {
+	Id   string     `json:"id"`
+	Addr string     `json:"addr"`
+	Seen *time.Time `json:"seen"`
+}
+
 type Task struct {
 	Id        string        `json:"id"`
 	ClientId  string        `json:"client_id"`
@@ -120,6 +126,36 @@ func (j *JudyDb) AddClient(uuid string, ip_addr string) {
 		}
 	}
 	j.logger.Debug("Client updated successfully", zap.String("uuid", uuid), zap.String("ip_addr", ip_addr), zap.Time("time", dateTime))
+}
+
+func (j *JudyDb) ListClients() ([]*Client, error) {
+	j.logger.Debug("Listing clients")
+	j.mx.Lock()
+	defer j.mx.Unlock()
+	clients := make([]*Client, 0)
+	statement, err := j.db.Prepare("SELECT * FROM client order by seen")
+	if err != nil {
+		j.logger.Error("List clients: Failed to prepare statement", zap.Error(err))
+		return nil, err
+	}
+	rows, err := statement.Query()
+	if err != nil {
+		j.logger.Error("List clients: Failed to query statement", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		client := new(Client)
+		err = rows.Scan(&client.Id, &client.Addr, &client.Seen)
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, client)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return clients, nil
 }
 
 func (j *JudyDb) AddTask(clientId string, task string) string {

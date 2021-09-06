@@ -32,6 +32,15 @@ func (s *JudyDbTestSuite) TestJudyDb_AddClient() {
 	s.db.AddClient(uuid.New().String(), "127.0.0.1")
 }
 
+func (s *JudyDbTestSuite) TestJudyDb_ListClients() {
+	db := NewJudyDb(true, s.logger)
+	db.AddClient(uuid.New().String(), "127.0.0.1")
+	db.AddClient(uuid.New().String(), "127.0.0.2")
+	clients, err := db.ListClients()
+	s.Require().Nil(err)
+	s.Require().Equal(2, len(clients))
+}
+
 func (s *JudyDbTestSuite) TestJudyDb_AddTask() {
 	clientUuid := uuid.New().String()
 	s.db.AddClient(clientUuid, "127.0.0.1")
