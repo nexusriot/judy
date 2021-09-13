@@ -128,6 +128,24 @@ func (j *JudyDb) AddClient(uuid string, ip_addr string) {
 	j.logger.Debug("Client updated successfully", zap.String("uuid", uuid), zap.String("ip_addr", ip_addr), zap.Time("time", dateTime))
 }
 
+func (j *JudyDb) GetCLient(clientId string) (*Client, error) {
+	j.mx.Lock()
+	defer j.mx.Unlock()
+	statement, err := j.db.Prepare("SELECT * FROM client where id = ?")
+	if err != nil {
+		j.logger.Error("Get client: Failed to prepare statement", zap.Error(err), zap.String("client_id", clientId))
+		return nil, err
+	}
+	var client Client
+	row := statement.QueryRow(clientId)
+	err = row.Scan(&client.Id, &client.Addr, &client.Seen)
+	if err != nil {
+		j.logger.Error("Get client: Failed to scan", zap.Error(err), zap.String("client_id", clientId))
+		return nil, err
+	}
+	return &client, nil
+}
+
 func (j *JudyDb) ListClients() ([]*Client, error) {
 	j.logger.Debug("Listing clients")
 	j.mx.Lock()
