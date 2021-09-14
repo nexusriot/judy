@@ -9,20 +9,46 @@ import (
 	pb "github.com/nexusriot/judy/proto"
 )
 
-// TODO: temp
-//func createTask(db *db.JudyDb) {
-//	db.AddTask("ls")
-//}
+type JudyServer struct {
+	db     *db.JudyDb
+	logger *zap.Logger
+	engine *gin.Engine
+}
 
-func handleHeartbeat(db *db.JudyDb, c *gin.Context, logger *zap.Logger) *pb.HeartbeatResponse {
+func NewJudyServer() (*JudyServer, error) {
+	var loggerConfig = zap.NewProductionConfig()
+	loggerConfig.Level.SetLevel(zap.DebugLevel)
+	logger, err := loggerConfig.Build()
+	if nil != err {
+		return nil, err
+	}
+	judyDB := db.NewJudyDb(true, logger)
+	r := gin.Default()
+	return &JudyServer{
+		db:     judyDB,
+		logger: logger,
+		engine: r,
+	}, nil
+}
+
+func (s *JudyServer) Run(address string) {
+	defer s.db.Close()
+	s.engine.POST("/hb", func(c *gin.Context) {
+		hbResponse := s.handleHeartbeat(c)
+		c.ProtoBuf(200, hbResponse)
+	})
+	s.engine.Run(address)
+}
+
+func (s *JudyServer) handleHeartbeat(c *gin.Context) *pb.HeartbeatResponse {
 	body, _ := c.GetRawData()
 	hb := new(pb.Heartbeat)
 	err := proto.Unmarshal(body, hb)
 	if err != nil {
-		logger.Error("Failed to unmarshal heartbeat", zap.Error(err))
+		s.logger.Error("Failed to unmarshal heartbeat", zap.Error(err))
 	}
-	logger.Info("Received Heartbeat from", zap.String("client_id", hb.ClientId))
-	db.AddClient(hb.ClientId, c.ClientIP())
+	s.logger.Info("Received Heartbeat from", zap.String("client_id", hb.ClientId))
+	s.db.AddClient(hb.ClientId, c.ClientIP())
 	// TODO: collect tasks
 	hbResponse := new(pb.HeartbeatResponse)
 	hbResponse.ClientId = hb.ClientId
@@ -30,20 +56,9 @@ func handleHeartbeat(db *db.JudyDb, c *gin.Context, logger *zap.Logger) *pb.Hear
 }
 
 func main() {
-	var loggerConfig = zap.NewProductionConfig()
-	loggerConfig.Level.SetLevel(zap.DebugLevel)
-	logger, err := loggerConfig.Build()
-	if nil != err {
+	judy, err := NewJudyServer()
+	if err != nil {
 		panic(err)
 	}
-	// TODO: make configurable
-	//sync := make(chan struct{})
-	judyDB := db.NewJudyDb(true, logger)
-	defer judyDB.Close()
-	r := gin.Default()
-	r.POST("/hb", func(c *gin.Context) {
-		hbResponse := handleHeartbeat(judyDB, c, logger)
-		c.ProtoBuf(200, hbResponse)
-	})
-	r.Run("0.0.0.0:1337")
+	judy.Run("0.0.0.0:1337")
 }
